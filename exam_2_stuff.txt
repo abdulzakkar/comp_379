@@ -1,0 +1,10 @@
+regularization (L1 and L2)
+holdout method
+evaluate and select models
+split data into training, dev, and test set
+metrics for evaluation eg F1
+text, features, etc.
+naive bayes
+K-means
+
+Everything since last exam
