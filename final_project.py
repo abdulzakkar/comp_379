@@ -212,11 +212,28 @@ def gridToData2(grid):
                 output = np.append(output, grid[i][j])
             else:
                 output = np.append(output, 0)
-    return output        
+    return output
+
+def generateRandomWeights(bestWeights, radius):
+    output = np.empty(0)
+    for i in range(0,len(bestWeights)):
+        output = np.append(output, random.randint(bestWeights[i]-radius,bestWeights[i]+radius))
+    return output
+    
+def calculateDirection(weightList,grid):
+    total = 0
+    for i in range(0,4):
+        for j in range(0,4):
+            if (not grid[i][j] == 0):
+                total += math.log(grid[i][j],2) * weightList[i * 4 + j]
+    if weightList[16] > total:
+        return 0
+    else:
+        return 1     
 
 def main():
     while True:
-        intro = Text(Point(250, 300), "2048 TRAINER\n\nTrain model...R\n\n>>>Delays between moves<<<\nTest model...E\nRandom model...N\n\n>>>No delays<<<\nTest model...F\nRandom model...M\n\nPRESS Q TO QUIT")
+        intro = Text(Point(250, 300), "2048 TRAINER\n\nTrain model...R\nFull game train...G\n\n>>>Delays between moves<<<\nTest model...E\nRandom model...N\n\n>>>No delays<<<\nTest model...F\nRandom model...M\n\nSimple learning model...L\n\nPRESS Q TO QUIT")
         intro.setSize(20)
         intro.setTextColor(color_rgb(255,255,255))
         
@@ -229,14 +246,33 @@ def main():
         else:
             isPrevData = False
             
+        if os.path.isfile("best_weights.txt"):
+            fileContent = open("best_weights.txt", 'r')
+            weightString = fileContent.readlines()
+            bestWeightsX = np.array(weightString[0:17])
+            bestWeightsX = bestWeightsX.astype(np.float)
+            bestWeightsY = np.array(weightString[17:34])
+            bestWeightsY = bestWeightsY.astype(np.float)
+            randomRadius = float(weightString[34])
+            bestLearnScore = float(weightString[35])
+            fileContent.close()
+        else:
+            bestWeightsX = np.empty(0)
+            bestWeightsY = np.empty(0)
+            for i in range(0,17):
+                bestWeightsX = np.append(bestWeightsX,0)
+                bestWeightsY = np.append(bestWeightsY,0)
+                randomRadius = 100
+                bestLearnScore = 0
+            
         win = GraphWin("2048", 500, 600)  
         win.setBackground(color_rgb(0,103,105)) 
         intro.draw(win)       
             
         if isPrevData:
-            options = ['r', 'e', 'n', 'f', 'm', 'q']
+            options = ['r', 'g', 'e', 'n', 'f', 'm', 'l','q']
         else:
-            options = ['r', 'n', 'm', 'q']
+            options = ['r', 'g', 'n', 'm', 'l','q']
         mode = '-'
         while mode not in options:
             mode = win.getKey()
@@ -246,7 +282,7 @@ def main():
             return 0
             
         if mode == 'e' or mode == 'f':
-            knn = KNeighborsClassifier(n_neighbors = 3)
+            knn = KNeighborsClassifier(n_neighbors = 10)
             knn.fit(data, np.ravel(np.transpose(direction)))       
             
         intro.undraw()
@@ -289,9 +325,7 @@ def main():
         if not isPrevData:
             data = np.empty((0,16), float)
             direction = np.empty(0)
-    
-        
-        
+
         drawBoard(board, win, tileList, numberList) 
     
         move = '-'
@@ -299,25 +333,39 @@ def main():
         moveIter = 0   
         nMoves = 0
         
+        totalIterations = 1
+        iteration = 1
+        
+        currentWeightsX = generateRandomWeights(bestWeightsX, math.floor(randomRadius))
+        currentWeightsY = generateRandomWeights(bestWeightsY, math.floor(randomRadius))
+        currentBestWeightsX = currentWeightsX
+        currentBestWeightsY = currentWeightsY
+        
+        if mode == 'l':
+            maxIterations = int(input("Enter number of generations to simulate:"))
+        
         while True:
     
             score = calcScore(board)
     
-            drawBoard(board, win, tileList, numberList)
+            if mode != 'l':
+                drawBoard(board, win, tileList, numberList)
             
             scoreText.undraw()
-            scoreText.setText(str(score))
-            scoreText.draw(win)
+            if mode != 'l':
+                scoreText.setSize(30)
+                scoreText.setText(str(score))
+                scoreText.draw(win)
     
             for i in range(0,4):
                 for j in range(0,4):
                     isChangeBoard[i][j] = board[i][j]
     
-            if mode == 'r':
+            if mode == 'r' or mode == 'g':
                 move = win.getKey()
-                #if nMoves % 30 == 0:
-                #    board = generateRandomGrid(board)
-                #nMoves += 1
+                if nMoves % 30 == 0 and mode == 'r':
+                    board = generateRandomGrid(board)
+                nMoves += 1
             else:
                 if mode == 'e' or mode == 'n':
                     time.sleep(0.5)
@@ -328,9 +376,15 @@ def main():
                         ranks[x] = i
                     move = classes[ranks[moveIter]]
                     moveIter += 1
-                else:
+                elif mode == 'm':
                     move = classes[random.randint(0,3)]
-                
+                elif mode == 'l':
+                    move = classes[calculateDirection(currentWeightsX,board) * 2 + 
+                        calculateDirection(currentWeightsY,board)]
+                    if moveIter > 0:
+                        move = classes[random.randint(0,3)]
+                    moveIter += 1
+
             if move == 'w':
                 board = shift(board, 0)
             elif move == 'd':
@@ -343,7 +397,55 @@ def main():
                 break
                 
             if lose(board):
-                break
+                print score
+                if mode == 'l':
+                    board = np.array([[0,0,0,0],
+                                      [0,0,0,0],
+                                      [0,0,0,0],
+                                      [0,0,0,0]])
+    
+                    isChangeBoard = np.array([[0,0,0,0],
+                                              [0,0,0,0],
+                                              [0,0,0,0],
+                                              [0,0,0,0]])
+    
+                    board = spawn(board)
+                    board = spawn(board)
+                    
+                    scoreText.setSize(16)
+                    scoreText.setText("Score: " + str(score) + " -- iteration: " + str(iteration) + " -- r: " + str(randomRadius))                    
+                    
+                    if score > bestLearnScore:
+                        bestLearnScore = score
+                        currentBestWeightsX = currentWeightsX
+                        currentBestWeightsY = currentWeightsY
+                        print "current best" + str(currentBestWeightsX) + str(currentBestWeightsY)
+                      
+                    if iteration == 1000:
+                        drawBoard(board, win, tileList, numberList)
+                        print "best score: " + str(bestLearnScore)
+                        iteration = 1
+                        randomRadius *= 0.9
+                        bestWeightsX = currentBestWeightsX
+                        bestWeightsY = currentBestWeightsY
+                        print "best weights:" + str(bestWeightsX) + str(bestWeightsY)
+                        if totalIterations / 1000 >= maxIterations:
+                            toWrite = np.empty(0)
+                            toWrite = np.append(toWrite,bestWeightsX)
+                            toWrite = np.append(toWrite,bestWeightsY)
+                            toWrite = np.append(toWrite,randomRadius)
+                            toWrite = np.append(toWrite,bestLearnScore)
+                            np.savetxt("best_weights.txt",toWrite)
+                            #WRITE WEIGHTS N STUFF
+                            break
+                        
+                    totalIterations += 1
+                    iteration += 1
+                    
+                    currentWeightsX = generateRandomWeights(bestWeightsX, math.floor(randomRadius))
+                    currentWeightsY = generateRandomWeights(bestWeightsY, math.floor(randomRadius))
+                else:
+                    break
             
             isChanged = False
             for i in range(0,4):
@@ -353,7 +455,7 @@ def main():
             
             if isChanged:
                 moveIter = 0
-                if mode == 'r':
+                if mode == 'r' or mode == 'g':
                     direction = np.append(direction, move)
                     data = np.vstack([data, gridToData2(board)])
                 board = spawn(board)
@@ -366,7 +468,7 @@ def main():
             move = win.getKey()
         win.close()
         
-        if mode == 'r':
+        if mode == 'r' or mode == 'g':
             pd.DataFrame.to_csv(pd.DataFrame(np.hstack([np.reshape(direction, [np.shape(direction)[0], 1]), data])), "2048_train.csv", index = False, header = False)
 
 main()
