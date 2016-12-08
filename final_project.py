@@ -1,6 +1,8 @@
 import numpy as np
 import pandas as pd
 from sklearn.neighbors import KNeighborsClassifier
+from sklearn.linear_model.perceptron import Perceptron
+
 
 import time
 import random
@@ -10,6 +12,9 @@ import math
 from graphics import *
 
 #LOOK INTO KERNELIZED DISTANCE!!!!!!!!!!!!!
+
+
+
 
 def printBoard(grid):
     for i in range(0,4):
@@ -233,7 +238,7 @@ def calculateDirection(weightList,grid):
 
 def main():
     while True:
-        intro = Text(Point(250, 300), "2048 TRAINER\n\nTrain model...R\nFull game train...G\n\n>>>Delays between moves<<<\nTest model...E\nRandom model...N\n\n>>>No delays<<<\nTest model...F\nRandom model...M\n\nSimple learning model...L\n\nPRESS Q TO QUIT")
+        intro = Text(Point(250, 300), "2048 TRAINER\n\nTrain model...R\nFull game train...G\n\n>>>Delays between moves<<<\nTest KNN model...E\nTest Perceptron model...P\nRandom model...N\n\n>>>No delays<<<\nTest KNN model...F\nTest Perceptron model...S\nRandom model...M\n\nSimple learning model...L\n\nPRESS Q TO QUIT")
         intro.setSize(20)
         intro.setTextColor(color_rgb(255,255,255))
         
@@ -270,7 +275,7 @@ def main():
         intro.draw(win)       
             
         if isPrevData:
-            options = ['r', 'g', 'e', 'n', 'f', 'm', 'l','q']
+            options = ['r', 'g', 'e', 'n', 'f', 'm', 'l','q','s','p']
         else:
             options = ['r', 'g', 'n', 'm', 'l','q']
         mode = '-'
@@ -283,7 +288,11 @@ def main():
             
         if mode == 'e' or mode == 'f':
             knn = KNeighborsClassifier(n_neighbors = 10)
-            knn.fit(data, np.ravel(np.transpose(direction)))       
+            knn.fit(data, np.ravel(np.transpose(direction)))
+
+        if mode == 'p' or mode == 's':
+            ppn = Perceptron(eta0=0.01, n_iter=10000)
+            ppn.fit(data, np.ravel(np.transpose(direction)))
             
         intro.undraw()
         win.setBackground(color_rgb(100,100,100))   
@@ -367,7 +376,7 @@ def main():
                     board = generateRandomGrid(board)
                 nMoves += 1
             else:
-                if mode == 'e' or mode == 'n':
+                if mode == 'e' or mode == 'n' or mode == 'p':
                     time.sleep(0.5)
                 if mode == 'e' or mode == 'f':
                     probs = np.ravel(knn.predict_proba(gridToData(board).reshape(1,-1)))
@@ -381,6 +390,11 @@ def main():
                 elif mode == 'l':
                     move = classes[calculateDirection(currentWeightsX,board) * 2 + 
                         calculateDirection(currentWeightsY,board)]
+                    if moveIter > 0:
+                        move = classes[random.randint(0,3)]
+                    moveIter += 1
+                elif mode == 'p' or mode == 's':
+                    move = ppn.predict(gridToData(board).reshape(1,-1))
                     if moveIter > 0:
                         move = classes[random.randint(0,3)]
                     moveIter += 1
