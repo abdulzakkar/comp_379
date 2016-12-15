@@ -2,6 +2,8 @@ import numpy as np
 import pandas as pd
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.linear_model.perceptron import Perceptron
+from sklearn.cross_validation import train_test_split
+from sklearn.preprocessing import StandardScaler
 
 
 import time
@@ -15,7 +17,14 @@ from graphics import *
 
 
 
-
+def splitData(dataset, splitRatio):
+    trainSize = int(len(dataset)*splitRatio)
+    trainSet = []
+    copy = list(dataset)
+    while(len(trainSet) < trainSize and not(len(copy) == 0)):
+        index = random.randrange(len(copy))
+        trainSet.append(copy.pop(index))
+    return [trainSet, copy]
 def printBoard(grid):
     for i in range(0,4):
         sys.stdout.write("|-------|-------|-------|-------|\n")
@@ -246,6 +255,12 @@ def main():
         if os.path.isfile("2048_train.csv"):
             data = pd.read_csv("2048_train.csv", header = None, usecols = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16])
             direction = pd.read_csv("2048_train.csv", header = None, usecols = [0])
+            splitRatio = 0.7
+            datatrainingSet, datatestSet = splitData(data, splitRatio)
+            directiontrainingSet, directiontestSet = splitData(direction, splitRatio)
+            splitRatio = 0.5
+            datatestSet, datadevelopementSet = splitData(datatestSet, splitRatio)
+            directiontestSet, directiondevelopementSet = splitData(directiontestSet, splitRatio)
             direction = np.transpose(direction)
             isPrevData = True
         else:
@@ -288,11 +303,11 @@ def main():
             
         if mode == 'e' or mode == 'f':
             knn = KNeighborsClassifier(n_neighbors = 10)
-            knn.fit(data, np.ravel(np.transpose(direction)))
+            knn.fit(datatrainingSet, np.ravel(np.transpose(directiontrainingSet)))
 
         if mode == 'p' or mode == 's':
             ppn = Perceptron(eta0=0.01, n_iter=10000)
-            ppn.fit(data, np.ravel(np.transpose(direction)))
+            ppn.fit(datatrainingSet, np.ravel(np.transpose(directiontrainingSet)))
             
         intro.undraw()
         win.setBackground(color_rgb(100,100,100))   
@@ -411,7 +426,7 @@ def main():
                 break
                 
             if lose(board):
-                print score
+                print(score)
                 if mode == 'l':
                     board = np.array([[0,0,0,0],
                                       [0,0,0,0],
@@ -433,16 +448,16 @@ def main():
                         bestLearnScore = score
                         currentBestWeightsX = currentWeightsX
                         currentBestWeightsY = currentWeightsY
-                        print "current best" + str(currentBestWeightsX) + str(currentBestWeightsY)
+                        print("current best" + str(currentBestWeightsX) + str(currentBestWeightsY))
                       
                     if iteration == 1000:
                         drawBoard(board, win, tileList, numberList)
-                        print "best score: " + str(bestLearnScore)
+                        print("best score: " + str(bestLearnScore))
                         iteration = 1
                         randomRadius *= 0.9
                         bestWeightsX = currentBestWeightsX
                         bestWeightsY = currentBestWeightsY
-                        print "best weights:" + str(bestWeightsX) + str(bestWeightsY)
+                        print("best weights:" + str(bestWeightsX) + str(bestWeightsY))
                         if totalIterations / 1000 >= maxIterations:
                             toWrite = np.empty(0)
                             toWrite = np.append(toWrite,bestWeightsX)
@@ -483,6 +498,6 @@ def main():
         win.close()
         
         if mode == 'r' or mode == 'g':
-            pd.DataFrame.to_csv(pd.DataFrame(np.hstack([np.reshape(direction, [np.shape(direction)[0], 1]), data])), "2048_train.csv", index = False, header = False)
+            pd.DataFrame.to_csv(pd.DataFrame(np.hstack([np.reshape(directiontrainingSet, [np.shape(directiontrainingSet)[0], 1]), datatrainingSet])), "2048_train.csv", index = False, header = False)
 
 main()
